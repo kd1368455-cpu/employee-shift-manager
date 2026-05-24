@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>社員シフト管理システム</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+
+    h1 {
+      margin-bottom: 10px;
+      font-size: 22px;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      background: #fff;
+      padding: 16px 20px 24px;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    }
+
+    .section-title {
+      margin-top: 20px;
+      margin-bottom: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      border-left: 4px solid #1976d2;
+      padding-left: 8px;
+    }
+
+    form {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px 12px;
+      align-items: end;
+      margin-bottom: 16px;
+    }
+
+    label {
+      font-size: 12px;
+      color: #555;
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    input, select, button {
+      font-size: 13px;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 6px 8px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      box-sizing: border-box;
+    }
+
+    button {
+      padding: 7px 12px;
+      border-radius: 4px;
+      border: none;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .btn-primary {
+      background: #1976d2;
+      color: #fff;
+    }
+
+    .btn-secondary {
+      background: #e0e0e0;
+      color: #333;
+    }
+
+    .btn-danger {
+      background: #e53935;
+      color: #fff;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      background: #fff;
+    }
+
+    th, td {
+      border: 1px solid #ddd;
+      padding: 6px 8px;
+      text-align: center;
+    }
+
+    th {
+      background: #f0f0f0;
+    }
+
+    tr:nth-child(even) {
+      background: #fafafa;
+    }
+
+    .text-left {
+      text-align: left;
+    }
+
+    .summary {
+      margin-top: 10px;
+      font-size: 12px;
+      color: #444;
+    }
+
+    .summary span {
+      margin-right: 16px;
+    }
+
+    @media (max-width: 800px) {
+      form {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 520px) {
+      form {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>社員シフト管理システム</h1>
+    <div style="font-size:12px;color:#666;margin-bottom:8px;">
+      社員ごとの勤務日・勤務時間を登録し、月間のシフトを一覧・集計します。（ブラウザのローカルストレージに保存）
+    </div>
+
+    <div class="section-title">シフト登録</div>
+    <form id="shift-form">
+      <div>
+        <label for="employeeName">社員名</label>
+        <input type="text" id="employeeName" required placeholder="例）山田太郎">
+      </div>
+      <div>
+        <label for="date">日付</label>
+        <input type="date" id="date" required>
+      </div>
+      <div>
+        <label for="startTime">開始時刻</label>
+        <input type="time" id="startTime" required>
+      </div>
+      <div>
+        <label for="endTime">終了時刻</label>
+        <input type="time" id="endTime" required>
+      </div>
+      <div>
+        <label for="role">担当</label>
+        <select id="role">
+          <option value="">未指定</option>
+          <option value="レジ">レジ</option>
+          <option value="フロア">フロア</option>
+          <option value="バックヤード">バックヤード</option>
+          <option value="事務">事務</option>
+        </select>
+      </div>
+      <div>
+        <label for="note">メモ</label>
+        <input type="text" id="note" placeholder="例）早番、研修中など">
+      </div>
+      <div>
+        <button type="submit" class="btn-primary">シフトを追加</button>
+      </div>
+      <div>
+        <button type="button" id="clear-form" class="btn-secondary">入力クリア</button>
+      </div>
+    </form>
+
+    <div class="section-title">シフト一覧</div>
+
+    <div class="toolbar">
+      <div style="font-size:12px;">
+        表示月：
+        <input type="month" id="filterMonth">
+      </div>
+      <div style="font-size:12px;">
+        社員名：
+        <input type="text" id="filterName" placeholder="部分一致">
+      </div>
+      <button type="button" id="apply-filter" class="btn-secondary">絞り込み</button>
+      <button type="button" id="reset-filter" class="btn-secondary">リセット</button>
+      <button type="button" id="export-json" class="btn-secondary">JSONエクスポート</button>
+      <button type="button" id="clear-all" class="btn-danger">全シフト削除</button>
+    </div>
+
+    <table id="shift-table">
+      <thead>
+        <tr>
+          <th>社員名</th>
+          <th>日付</th>
+          <th>曜日</th>
+          <th>開始</th>
+          <th>終了</th>
+          <th>勤務時間</th>
+          <th>担当</th>
+          <th class="text-left">メモ</th>
+          <th>削除</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- JSで挿入 -->
+      </tbody>
+    </table>
+
+    <div class="summary" id="summary">
+      <!-- JSで挿入 -->
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "employee-shift-manager-data";
+
+    const form = document.getElementById("shift-form");
+    const employeeNameInput = document.getElementById("employeeName");
+    const dateInput = document.getElementById("date");
+    const startTimeInput = document.getElementById("startTime");
+    const endTimeInput = document.getElementById("endTime");
+    const roleInput = document.getElementById("role");
+    const noteInput = document.getElementById("note");
+
+    const filterMonthInput = document.getElementById("filterMonth");
+    const filterNameInput = document.getElementById("filterName");
+    const applyFilterBtn = document.getElementById("apply-filter");
+    const resetFilterBtn = document.getElementById("reset-filter");
+    const exportJsonBtn = document.getElementById("export-json");
+    const clearAllBtn = document.getElementById("clear-all");
+    const clearFormBtn = document.getElementById("clear-form");
+
+    const tableBody = document.querySelector("#shift-table tbody");
+    const summaryDiv = document.getElementById("summary");
+
+    let shifts = [];
+
+    function loadShifts() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) {
+        shifts = [];
+        return;
+      }
+      try {
+        shifts = JSON.parse(raw);
+      } catch (e) {
+        console.error("Failed to parse storage", e);
+        shifts = [];
+      }
+    }
+
+    function saveShifts() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(shifts));
+    }
+
+    function getWeekday(dateStr) {
+      const d = new Date(dateStr);
+      if (isNaN(d)) return "";
+      const w = ["日","月","火","水","木","金","土"];
+      return w[d.getDay()];
+    }
+
+    function calcHours(start, end) {
+      if (!start || !end) return 0;
+      const [sh, sm] = start.split(":").map(Number);
+      const [eh, em] = end.split(":").map(Number);
+      const startMin = sh * 60 + sm;
+      const endMin = eh * 60 + em;
+      if (endMin <= startMin) return 0;
+      return (endMin - startMin) / 60;
+    }
+
+    function formatHours(h) {
+      return h.toFixed(1) + "h";
+    }
+
+    function renderTable() {
+      tableBody.innerHTML = "";
+
+      const monthFilter = filterMonthInput.value;
+      const nameFilter = filterNameInput.value.trim();
+
+      const filtered = shifts.filter(s => {
+        let ok = true;
+        if (monthFilter) {
+          ok = ok && s.date.startsWith(monthFilter);
+        }
+        if (nameFilter) {
+          ok = ok && s.employeeName.includes(nameFilter);
+        }
+        return ok;
+      });
+
+      let totalHours = 0;
+      const hoursByEmployee = {};
+
+      filtered
+        .sort((a, b) => (a.date + a.employeeName).localeCompare(b.date + b.employeeName))
+        .forEach((s, index) => {
+          const tr = document.createElement("tr");
+
+          const hours = calcHours(s.startTime, s.endTime);
+          totalHours += hours;
+          if (!hoursByEmployee[s.employeeName]) {
+            hoursByEmployee[s.employeeName] = 0;
+          }
+          hoursByEmployee[s.employeeName] += hours;
+
+          tr.innerHTML = `
+            <td>${s.employeeName}</td>
+            <td>${s.date}</td>
+            <td>${getWeekday(s.date)}</td>
+            <td>${s.startTime}</td>
+            <td>${s.endTime}</td>
+            <td>${hours ? formatHours(hours) : "-"}</td>
+            <td>${s.role || ""}</td>
+            <td class="text-left">${s.note || ""}</td>
+            <td><button data-index="${s.id}" class="btn-danger" style="font-size:11px;padding:3px 6px;">削除</button></td>
+          `;
+          tableBody.appendChild(tr);
+        });
+
+      tableBody.querySelectorAll("button[data-index]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const id = btn.getAttribute("data-index");
+          shifts = shifts.filter(s => s.id !== id);
+          saveShifts();
+          renderTable();
+        });
+      });
+
+      const employeeSummary = Object.entries(hoursByEmployee)
+        .map(([name, h]) => `${name}: ${formatHours(h)}`)
+        .join(" ／ ");
+
+      summaryDiv.textContent = filtered.length === 0
+        ? "該当するシフトはありません。"
+        : `件数: ${filtered.length}件　合計勤務時間: ${formatHours(totalHours)}　${employeeSummary ? "｜ 社員別: " + employeeSummary : ""}`;
+    }
+
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+
+      const employeeName = employeeNameInput.value.trim();
+      const date = dateInput.value;
+      const startTime = startTimeInput.value;
+      const endTime = endTimeInput.value;
+      const role = roleInput.value;
+      const note = noteInput.value.trim();
+
+      if (!employeeName || !date || !startTime || !endTime) {
+        alert("社員名・日付・開始時刻・終了時刻は必須です。");
+        return;
+      }
+
+      const hours = calcHours(startTime, endTime);
+      if (hours <= 0) {
+        alert("終了時刻は開始時刻より後にしてください。");
+        return;
+      }
+
+      const shift = {
+        id: Date.now().toString() + Math.random().toString(16).slice(2),
+        employeeName,
+        date,
+        startTime,
+        endTime,
+        role,
+        note
+      };
+
+      shifts.push(shift);
+      saveShifts();
+      renderTable();
+
+      noteInput.value = "";
+    });
+
+    applyFilterBtn.addEventListener("click", () => {
+      renderTable();
+    });
+
+    resetFilterBtn.addEventListener("click", () => {
+      filterMonthInput.value = "";
+      filterNameInput.value = "";
+      renderTable();
+    });
+
+    clearAllBtn.addEventListener("click", () => {
+      if (!confirm("全てのシフトを削除します。よろしいですか？")) return;
+      shifts = [];
+      saveShifts();
+      renderTable();
+    });
+
+    clearFormBtn.addEventListener("click", () => {
+      employeeNameInput.value = "";
+      dateInput.value = "";
+      startTimeInput.value = "";
+      endTimeInput.value = "";
+      roleInput.value = "";
+      noteInput.value = "";
+    });
+
+    exportJsonBtn.addEventListener("click", () => {
+      const blob = new Blob([JSON.stringify(shifts, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "employee-shifts.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    loadShifts();
+    renderTable();
+  </script>
+</body>
+</html>
